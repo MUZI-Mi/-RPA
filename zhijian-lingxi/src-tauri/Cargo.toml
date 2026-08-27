@@ -1,0 +1,23 @@
+[package]
+name = "zhijian-lingxi"
+version = "2.0.0"
+description = "智简灵析 — 智能网页自动化助手"
+authors = ["zhijian-lingxi"]
+edition = "2021"
+
+[lib]
+name = "zhijian_lingxi_lib"
+crate-type = ["staticlib", "cdylib", "rlib"]
+
+[build-dependencies]
+tauri-build = { version = "2", features = [] }
+
+[dependencies]
+tauri = { version = "2", features = ["tray-icon", "notification-all"] }
+tauri-plugin-notification = "2"
+tauri-plugin-shell = "2"
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+
+[features]
+custom-protocol = ["tauri/custom-protocol"]

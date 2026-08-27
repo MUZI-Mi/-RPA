@@ -1,0 +1,57 @@
+import axios from "axios";
+import type { Task, TaskConfig, StepLog, Execution, LLMProvider } from "@/types";
+
+const api = axios.create({
+  // 开发模式走 Vite 代理；打包（Tauri/静态托管）后直接访问本地后端
+  baseURL: import.meta.env.DEV ? "/api" : "http://127.0.0.1:8710/api",
+  timeout: 60000,
+});
+
+// === 任务 ===
+export const getTasks = () => api.get<Task[]>("/tasks").then((r) => r.data);
+export const getTask = (id: string) => api.get<Task>(`/tasks/${id}`).then((r) => r.data);
+export const createTask = (name: string, config: TaskConfig) =>
+  api.post("/tasks", { name, config }).then((r) => r.data);
+export const updateTask = (id: string, data: Partial<Task>) =>
+  api.put(`/tasks/${id}`, data).then((r) => r.data);
+export const deleteTask = (id: string) => api.delete(`/tasks/${id}`).then((r) => r.data);
+export const runTask = (id: string) => api.post(`/tasks/${id}/run`).then((r) => r.data);
+export const stopTask = (id: string) => api.post(`/tasks/${id}/stop`).then((r) => r.data);
+export const getHistory = (id: string) =>
+  api.get<Execution[]>(`/tasks/${id}/history`).then((r) => r.data);
+
+// === 自然语言 ===
+export const parseNL = (text: string) =>
+  api.post<{ config: TaskConfig }>("/nl/parse", { text }).then((r) => r.data);
+
+// === 报告 ===
+export const getLatestReport = (taskId: string) =>
+  api.get<{ run_id: string; report_path: string }>(`/reports/${taskId}`).then((r) => r.data);
+export const getReportDetail = (taskId: string, runId: string) =>
+  api
+    .get<{ execution: Execution; steps: StepLog[] }>(`/reports/${taskId}/${runId}`)
+    .then((r) => r.data);
+
+// === 录制 ===
+export const startRecording = (start_url: string) =>
+  api.post<{ session_id: string }>("/recording/start", { start_url }).then((r) => r.data);
+export const stopRecording = () =>
+  api.post<{ steps: TaskConfig["steps"] }>("/recording/stop").then((r) => r.data);
+export const getRecordingStatus = () =>
+  api.get<{ recording: boolean; session_id?: string; event_count?: number }>(
+    "/recording/status"
+  ).then((r) => r.data);
+
+// === 设置 ===
+export const getSettings = () => api.get<Record<string, string>>("/settings").then((r) => r.data);
+export const getProviders = () =>
+  api.get<{ providers: LLMProvider[] }>("/settings/providers").then((r) => r.data);
+export const updateSettings = (data: Record<string, any>) =>
+  api.put("/settings", data).then((r) => r.data);
+export const testLLM = () => api.post("/settings/test-llm").then((r) => r.data);
+
+// === 浏览器接管 ===
+export const launchBrowser = () =>
+  api.post<{ ok: boolean; cdp_url?: string; msg?: string }>("/browser/launch").then((r) => r.data);
+
+export default api;

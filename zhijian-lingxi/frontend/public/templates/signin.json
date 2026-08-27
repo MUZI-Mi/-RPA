@@ -1,0 +1,23 @@
+{
+  "task_name": "网页签到（模板）",
+  "description": "打开目标签到页面并点击签到按钮",
+  "speed_mode": "normal",
+  "schedule": { "type": "cron", "expression": "0 9 * * *", "missed_run": true },
+  "steps": [
+    {
+      "step_id": 1,
+      "condition": { "type": "page_load" },
+      "action": { "type": "open", "url": "https://example.com/signin" }
+    },
+    {
+      "step_id": 2,
+      "condition": { "type": "element_visible", "selector": ".sign-btn", "timeout": 10000 },
+      "action": { "type": "click", "selector": ".sign-btn", "text": "签到" }
+    },
+    {
+      "step_id": 3,
+      "condition": { "type": "always" },
+      "action": { "type": "extract", "selector": ".result", "extract_type": "text", "save_as": "msg" }
+    }
+  ]
+}

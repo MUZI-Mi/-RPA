@@ -1,0 +1,79 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+<meta charset="utf-8">
+<title>财务报表审批</title>
+<style>
+  body { font-family: "Microsoft YaHei", sans-serif; margin: 20px; }
+  .report { border: 1px solid #ddd; padding: 10px; margin: 8px 0; border-radius: 6px; }
+  .report .type { font-weight: bold; color: #2e6ef5; }
+  .report .kind { color: #666; }
+  .confirm-btn, .skip-btn { margin-left: 12px; padding: 4px 14px; cursor: pointer; }
+  .skip-btn { color: #999; }
+  .pager { margin-top: 16px; }
+  .page-no { font-weight: bold; }
+</style>
+</head>
+<body>
+<h2>财务报表审批列表</h2>
+<div id="list"></div>
+<div class="pager">
+  <span class="page-no">第 1 页</span>
+  <button id="next-btn" class="next-btn">下一页</button>
+</div>
+
+<script>
+  const DATA = {
+    1: [
+      { type: "A类报表", kind: "个人" },
+      { type: "B类报表", kind: "对公" },
+      { type: "A类报表", kind: "个人" },
+    ],
+    2: [
+      { type: "B类报表", kind: "个人对公" },
+      { type: "A类报表", kind: "对公" },
+    ],
+    3: [
+      { type: "B类报表", kind: "个人" },
+    ],
+  };
+
+  let page = 1;
+  function render() {
+    const list = document.getElementById("list");
+    list.innerHTML = "";
+    const items = DATA[page] || [];
+    items.forEach((it) => {
+      const div = document.createElement("div");
+      div.className = "report";
+      div.innerHTML = `<span class="type">${it.type}</span> <span class="kind">${it.kind}</span>
+        <button class="confirm-btn">确定</button>
+        <button class="skip-btn">跳过</button>`;
+      list.appendChild(div);
+    });
+    document.querySelector(".page-no").textContent = "第 " + page + " 页";
+    const nb = document.getElementById("next-btn");
+    if (DATA[page + 1]) {
+      nb.style.display = "inline-block";
+    } else {
+      nb.remove(); // 无下一页：从 DOM 移除，供 if_element 检测终止
+    }
+  }
+
+  // 明确「确定」或「跳过」都会让该条从列表消失（后面顺延）
+  document.getElementById("list").addEventListener("click", (e) => {
+    const btn = e.target.closest("button");
+    if (!btn || !btn.classList.contains("confirm-btn") && !btn.classList.contains("skip-btn")) return;
+    const row = btn.closest(".report");
+    if (row) row.remove();
+  });
+
+  document.getElementById("next-btn").addEventListener("click", () => {
+    page += 1;
+    render();
+  });
+
+  render();
+</script>
+</body>
+</html>

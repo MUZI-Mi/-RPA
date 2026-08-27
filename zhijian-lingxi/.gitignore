@@ -1,0 +1,22 @@
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+backend/data/
+backend/dist/
+backend/build/
+*.spec
+
+# Node
+node_modules/
+frontend/dist/
+
+# Tauri / Rust
+src-tauri/target/
+
+# IDE
+.idea/
+.vscode/
+*.log
+.DS_Store

@@ -1,0 +1,94 @@
+/* 智简灵析 · 豆包风格全局主题 */
+:root {
+  /* 主色调：豆包蓝 */
+  --db-primary: #2e6ef5;
+  --db-primary-hover: #4a82f7;
+  --db-primary-light: #eaf1ff;
+  --db-primary-lighter: #f4f8ff;
+
+  /* 背景与面板 */
+  --db-bg: #f5f6f7;
+  --db-panel: #ffffff;
+  --db-border: #e8eaed;
+  --db-text: #1f2329;
+  --db-text-secondary: #646a73;
+  --db-text-muted: #9aa0a6;
+
+  /* 圆角与阴影 */
+  --db-radius: 12px;
+  --db-radius-lg: 16px;
+  --db-shadow: 0 2px 12px rgba(31, 35, 41, 0.06);
+  --db-shadow-hover: 0 4px 20px rgba(46, 110, 245, 0.12);
+
+  /* Element Plus 主题变量覆盖 */
+  --el-color-primary: #2e6ef5;
+  --el-color-primary-light-3: #6b9bf8;
+  --el-color-primary-light-5: #97b9fa;
+  --el-color-primary-light-7: #c3d7fc;
+  --el-color-primary-light-8: #d9e6fe;
+  --el-color-primary-light-9: #eaf1ff;
+  --el-color-primary-dark-2: #2558c4;
+  --el-border-radius-base: 8px;
+  --el-border-radius-small: 6px;
+  --el-border-radius-round: 20px;
+  --el-font-family: "PingFang SC", "Microsoft YaHei", "HarmonyOS Sans SC", system-ui, sans-serif;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body,
+#app {
+  height: 100%;
+  margin: 0;
+  padding: 0;
+}
+
+body {
+  font-family: var(--el-font-family);
+  background: var(--db-bg);
+  color: var(--db-text);
+  -webkit-font-smoothing: antialiased;
+}
+
+/* 滚动条美化 */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+::-webkit-scrollbar-thumb {
+  background: #d0d3d6;
+  border-radius: 3px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: #b8bcc0;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+/* 通用卡片样式（替代 el-card 默认外观） */
+.db-card {
+  background: var(--db-panel);
+  border-radius: var(--db-radius-lg);
+  box-shadow: var(--db-shadow);
+  border: 1px solid var(--db-border);
+}
+
+/* Element Plus 细节微调 */
+.el-button--primary {
+  box-shadow: 0 2px 8px rgba(46, 110, 245, 0.25);
+}
+.el-card {
+  border-radius: var(--db-radius-lg);
+  border: 1px solid var(--db-border);
+  box-shadow: var(--db-shadow);
+}
+.el-dialog {
+  border-radius: var(--db-radius-lg);
+}
+.el-tag {
+  border-radius: 6px;
+}

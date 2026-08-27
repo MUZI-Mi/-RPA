@@ -1,0 +1,18 @@
+{
+  "task_name": "数据采集（模板）",
+  "description": "打开页面提取表格数据",
+  "speed_mode": "normal",
+  "schedule": { "type": "interval", "interval": { "hours": 2 }, "missed_run": true },
+  "steps": [
+    {
+      "step_id": 1,
+      "condition": { "type": "page_load" },
+      "action": { "type": "open", "url": "https://example.com/data" }
+    },
+    {
+      "step_id": 2,
+      "condition": { "type": "always" },
+      "action": { "type": "extract", "selector": "table", "extract_type": "text", "save_as": "table_data" }
+    }
+  ]
+}
