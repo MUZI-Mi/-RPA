@@ -79,35 +79,73 @@ class PageOperator:
             return ("coordinate", result.value)
         return ("locator", page.locator(result.value).first)
 
-    async def click(self, page: Page, selector: str, intent: str = "", ctx: Optional[HealingContext] = None) -> bool:
+    async def click(self, page: Page, selector: str, intent: str = "", ctx: Optional[HealingContext] = None,
+                    current_page: Optional[List[Page]] = None) -> bool:
         ctx = ctx or HealingContext()
         kind, val = await self._resolve_locator(page, selector, intent or "点击元素", ctx)
         if kind == "coordinate":
             await SelfHealing.click_by_coordinate(page, *val)
             return True
-        # 目标是链接时，记住其绝对 href，用于点击后验证是否真正跳转
+        # 目标是链接时，记住其绝对 href 与 target
         href = None
+        new_tab = False
         try:
-            href = await val.evaluate("el => { const c = el.closest('a[href]'); return c ? c.href : null; }")
+            href, new_tab = await val.evaluate(
+                "el => { const c = el.closest('a[href]'); "
+                "return c ? [c.href, c.target === '_blank'] : [null, false]; }"
+            )
         except Exception:
             pass
         before = page.url
-        # 正常点击，缩短默认超时；元素不稳定（轮播图动画）时快速降级
+        # 捕获点击可能打开的新标签页（target="_blank"），点击成功后若确实开了新标签页就跟随它。
+        popup = None
         try:
-            await val.click(timeout=8000)
-        except Exception:
-            ctx.log("元素不稳定/被遮挡，降级为强制点击")
-            try:
-                await val.click(force=True, timeout=5000)
-            except Exception:
-                ctx.log("强制点击失败，降级为 JS 直接点击")
+            async with page.expect_popup(timeout=9000) as popup_info:
+                # 正常点击，缩短默认超时；元素不稳定（轮播图动画）时快速降级
                 try:
-                    await val.evaluate("el => el.click()")
+                    await val.click(timeout=8000)
                 except Exception:
-                    pass
-        # 点击后验证页面是否跳转：链接被弹窗/遮罩拦截时「点击成功但无反应」。
-        # 用 wait_for_url 轮询等待 URL 真正变化（页面加载慢时也不误判）。
-        if href and href != before:
+                    ctx.log("元素不稳定/被遮挡，降级为强制点击")
+                    try:
+                        await val.click(force=True, timeout=5000)
+                    except Exception:
+                        ctx.log("强制点击失败，降级为 JS 直接点击")
+                        try:
+                            await val.evaluate("el => el.click()")
+                        except Exception:
+                            pass
+            popup = await popup_info.value
+        except Exception:
+            # 未打开新标签页（普通点击）时，expect_popup 超时，走下方跳转验证
+            popup = None
+
+        # 1) 点击打开了新标签页：跟随它。B 站等会给链接追加 spm 追踪参数
+        #    （?spm_id_from=...）导致 popup.url != href，故只要新标签页是真实页面就跟随。
+        if popup is not None and current_page is not None:
+            try:
+                await popup.wait_for_load_state("domcontentloaded", timeout=15000)
+            except Exception:
+                pass
+            try:
+                purl = popup.url
+            except Exception:
+                purl = ""
+            if purl and purl != "about:blank":
+                ctx.log(f"点击在新标签页打开了 {purl}，已切换为该标签页")
+                current_page[0] = popup
+                return True
+            # 新标签页仍在加载（URL 未就绪），也先跟随，后续步骤会等待加载
+            ctx.log("点击打开了新标签页（仍在加载），已切换为该标签页")
+            current_page[0] = popup
+            return True
+
+        # 统一判断 URL 是否跳转的辅助函数（去掉查询参数与锚点，避免 spm 追踪参数干扰）
+        def _norm(u: str) -> str:
+            return (u or "").split("#")[0].split("?")[0].rstrip("/") or u or ""
+
+        # 2) 当前页跳转验证：链接被弹窗/遮罩拦截时「点击成功但无反应」。
+        #    target="_blank" 且未捕获到 popup 时跳过强制导航，避免 goto 造成「打开两个相同网页」。
+        if href and href != before and not new_tab:
             navigated = False
             try:
                 await page.wait_for_url(lambda u: u != before, timeout=8000)
@@ -115,11 +153,47 @@ class PageOperator:
             except Exception:
                 navigated = False
             if not navigated:
-                ctx.log(f"点击链接后页面未跳转（可能被遮罩拦截），直接导航到 {href}")
+                # 目标可能已被其它标签页打开（响应慢导致跳转验证超时），切换到它而不是重复 goto
+                target = None
                 try:
-                    await page.goto(href, wait_until="domcontentloaded", timeout=15000)
+                    if _norm(page.url) != _norm(before):
+                        target = page
+                    else:
+                        for p in page.context.pages:
+                            if p is not page:
+                                try:
+                                    if _norm(p.url) == _norm(href):
+                                        target = p
+                                        break
+                                except Exception:
+                                    pass
                 except Exception:
                     pass
+                if target is not None:
+                    ctx.log(f"目标页面已由其他标签页打开（{target.url}），切换过去")
+                    if current_page is not None:
+                        current_page[0] = target
+                else:
+                    ctx.log(f"点击链接后页面未跳转（可能被遮罩拦截），直接导航到 {href}")
+                    try:
+                        await page.goto(href, wait_until="domcontentloaded", timeout=15000)
+                    except Exception:
+                        pass
+        # 3) target="_blank" 但 expect_popup 未捕获（如 JS 降级点击）时，
+        #    若发现其它标签页已打开目标地址，也切换过去。
+        elif href and new_tab and current_page is not None:
+            try:
+                for p in page.context.pages:
+                    if p is not page:
+                        try:
+                            if _norm(p.url) == _norm(href):
+                                ctx.log(f"目标页面已由其他标签页打开（{p.url}），切换过去")
+                                current_page[0] = p
+                                break
+                        except Exception:
+                            pass
+            except Exception:
+                pass
         return True
 
     async def input_text(self, page: Page, selector: str, value: str, speed: str = "normal",
@@ -496,7 +570,8 @@ class TaskExecutor:
             await self._settle(page)
             return None
         if atype == "click":
-            await self.operator.click(page, action.get("selector", ""), intent, ctx)
+            await self.operator.click(page, action.get("selector", ""), intent, ctx, current_page)
+            page = current_page[0]  # 点击可能打开了新标签页，跟随它
             await self._settle(page)
             return None
         if atype == "input":
