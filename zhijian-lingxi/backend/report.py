@@ -47,6 +47,8 @@ HTML_TEMPLATE = """<!DOCTYPE html>
     figcaption { font-size: 12px; color: #999; margin-top: 4px; }
     .error { color: #d03050; font-size: 13px; margin-top: 8px; }
     .extract { background: #f0f7ff; padding: 8px 12px; border-radius: 4px; margin-top: 8px; font-size: 13px; }
+    .clicked { background: #e8f7ef; padding: 8px 12px; border-radius: 4px; margin-top: 8px; font-size: 13px; }
+    .clicked a { color: #18a058; word-break: break-all; }
   </style>
 </head>
 <body>
@@ -70,6 +72,9 @@ HTML_TEMPLATE = """<!DOCTYPE html>
         <span class="badge {{ s.status }}">{{ '成功' if s.status == 'success' else '失败' }}</span>
       </div>
       <div class="target">目标：{{ s.target_element or '—' }} · 耗时 {{ s.duration_ms }}ms</div>
+      {% if s.clicked_info and (s.clicked_info.text or s.clicked_info.href) %}
+      <div class="clicked">真实点到了{% if s.clicked_info.text %}「{{ s.clicked_info.text }}」{% endif %}{% if s.clicked_info.href %} → <a href="{{ s.clicked_info.href }}">{{ s.clicked_info.href }}</a>{% endif %}</div>
+      {% endif %}
       {% if s.healing_actions %}
       <div class="healing">
         自愈记录：

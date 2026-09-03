@@ -24,7 +24,7 @@
     <!-- 任务列表 -->
     <div class="db-card list-card">
       <el-table :data="tasks" v-loading="loading" style="width: 100%" :header-cell-style="headerStyle">
-        <el-table-column prop="name" label="任务名称" min-width="160">
+        <el-table-column prop="name" label="任务名称" min-width="130">
           <template #default="{ row }">
             <div class="task-name">
               <div class="task-avatar">
@@ -34,25 +34,25 @@
             </div>
           </template>
         </el-table-column>
-        <el-table-column label="调度" min-width="140">
+        <el-table-column label="调度" width="100">
           <template #default="{ row }">
             <el-tag size="small" round :type="scheduleTagType(row.schedule)">
               {{ scheduleLabel(row.schedule) }}
             </el-tag>
           </template>
         </el-table-column>
-        <el-table-column prop="speed_mode" label="速度" width="80">
+        <el-table-column prop="speed_mode" label="速度" width="70">
           <template #default="{ row }">
             {{ speedLabel(row.speed_mode) }}
           </template>
         </el-table-column>
-        <el-table-column prop="status" label="状态" width="90">
+        <el-table-column prop="status" label="状态" width="80">
           <template #default="{ row }">
             <el-tag size="small" round :type="statusTagType(row.status)">{{ statusLabel(row.status) }}</el-tag>
           </template>
         </el-table-column>
-        <el-table-column prop="created_at" label="创建时间" width="170" />
-        <el-table-column label="操作" width="400" fixed="right">
+        <el-table-column prop="created_at" label="创建时间" width="130" />
+        <el-table-column label="操作" width="380" fixed="right">
           <template #default="{ row }">
             <el-button v-if="row.status !== 'running'" size="small" type="primary" round @click="handleRun(row)">
               <el-icon><VideoPlay /></el-icon>执行
@@ -209,25 +209,25 @@ async function handleDelete(task: Task) {
 
 <style scoped>
 .page {
-  max-width: 1100px;
+  max-width: 1000px;
   margin: 0 auto;
-  padding: 32px 24px;
+  padding: 16px 24px 24px;
 }
 
 .page-head {
   display: flex;
   justify-content: space-between;
   align-items: flex-start;
-  margin-bottom: 24px;
+  margin-bottom: 16px;
 }
 .page-title {
-  font-size: 24px;
+  font-size: 36px;
   font-weight: 600;
   color: var(--db-text);
   margin: 0 0 6px;
 }
 .page-desc {
-  font-size: 14px;
+  font-size: 18px;
   color: var(--db-text-secondary);
   margin: 0;
 }
@@ -247,15 +247,15 @@ async function handleDelete(task: Task) {
   font-weight: 500;
 }
 .task-avatar {
-  width: 30px;
-  height: 30px;
+  width: 32px;
+  height: 32px;
   border-radius: 9px;
   background: var(--db-primary-light);
   color: var(--db-primary);
   display: flex;
   align-items: center;
   justify-content: center;
-  font-size: 15px;
+  font-size: 16px;
   flex-shrink: 0;
 }
 

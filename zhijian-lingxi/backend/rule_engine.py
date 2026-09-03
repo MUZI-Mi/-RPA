@@ -45,7 +45,11 @@ RULE_SCHEMA = {
                                 "enum": [
                                     "open", "click", "input", "select", "upload",
                                     "scroll", "extract", "wait", "hover", "press_key",
-                                    "goto", "if_text", "if_element", "if_var",
+                                    "reload", "back", "forward", "close_tab", "set_var",
+                                    "goto", "if_text", "if_element", "if_var", "foreach",
+                                    "foreach_if", "ocr", "llm_extract", "export",
+                                    "read_excel", "read_csv", "ocr_to_json", "data_clean",
+                                    "llm_summarize",
                                 ]
                             }
                         },
@@ -59,7 +63,10 @@ RULE_SCHEMA = {
 ACTION_TYPES = {
     "open", "click", "input", "select", "upload",
     "scroll", "extract", "wait", "hover", "press_key",
-    "goto", "if_text", "if_element", "if_var",
+    "reload", "back", "forward", "close_tab", "set_var",
+    "goto", "if_text", "if_element", "if_var", "foreach", "foreach_if",
+    "ocr", "llm_extract", "export",
+    "read_excel", "read_csv", "ocr_to_json", "data_clean", "llm_summarize",
 }
 CONDITION_TYPES = {"page_load", "element_visible", "text_appears", "always"}
 # 控制流动作：只改变执行指针，不操作页面

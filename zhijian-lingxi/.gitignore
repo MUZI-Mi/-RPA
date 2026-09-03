@@ -11,6 +11,7 @@ backend/build/
 # Node
 node_modules/
 frontend/dist/
+dist/
 
 # Tauri / Rust
 src-tauri/target/

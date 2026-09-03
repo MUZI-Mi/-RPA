@@ -123,6 +123,40 @@
         </el-form>
       </div>
 
+      <!-- 合规与安全 -->
+      <div class="db-card section full">
+        <div class="section-head">
+          <div class="section-icon audit"><el-icon><Lock /></el-icon></div>
+          <div>
+            <div class="section-title">合规与安全</div>
+            <div class="section-desc">PII 脱敏、人工审核与操作留痕</div>
+          </div>
+        </div>
+        <el-form label-width="110px" label-position="left">
+          <el-form-item label="操作人姓名">
+            <div class="key-wrap">
+              <el-input v-model="form.operator_name" placeholder="用于审计日志记录操作人" style="max-width: 280px" />
+              <div class="provider-note">所有操作会以这个姓名留痕，方便追责</div>
+            </div>
+          </el-form-item>
+          <el-form-item label="PII 脱敏">
+            <div class="key-wrap">
+              <el-switch v-model="form.pii_masking_enabled" />
+              <div class="provider-note">开启后，送进 AI 的身份证/手机号/银行卡等敏感信息会先自动打码，AI 返回后再还原，本机始终存明文</div>
+            </div>
+          </el-form-item>
+          <el-form-item label="审核阈值">
+            <div class="key-wrap">
+              <el-slider v-model="form.review_threshold" :min="0.5" :max="0.95" :step="0.05" style="max-width: 280px" show-input />
+              <div class="provider-note">AI 对数据的置信度低于此值时，自动进入「审核队列」等人工确认</div>
+            </div>
+          </el-form-item>
+          <el-form-item>
+            <el-button type="primary" round @click="save">保存</el-button>
+          </el-form-item>
+        </el-form>
+      </div>
+
       <!-- 通知配置 -->
       <div class="db-card section full">
         <div class="section-head">
@@ -184,6 +218,9 @@ const form = reactive<Record<string, any>>({
   smtp_user: "",
   smtp_password: "",
   smtp_to: "",
+  operator_name: "",
+  pii_masking_enabled: true,
+  review_threshold: 0.75,
 });
 
 const providers = ref<LLMProvider[]>([]);
@@ -218,6 +255,12 @@ onMounted(async () => {
     if (settings.show_browser !== undefined) form.show_browser = settings.show_browser === "true" || settings.show_browser === "1";
     if (settings.browser_mode) form.browser_mode = settings.browser_mode;
     if (settings.cdp_url) form.cdp_url = settings.cdp_url;
+    // 合规相关（存储为字符串，需转换）
+    if (settings.operator_name !== undefined) form.operator_name = settings.operator_name;
+    if (settings.pii_masking_enabled !== undefined) {
+      form.pii_masking_enabled = settings.pii_masking_enabled !== "false" && settings.pii_masking_enabled !== "0";
+    }
+    if (settings.review_threshold !== undefined) form.review_threshold = Number(settings.review_threshold);
     // 反向匹配 provider id
     if (settings.base_url) {
       const matched = providers.value.find((p) => p.base_url === settings.base_url);
@@ -273,14 +316,14 @@ async function launchDebugBrowser() {
 .page {
   max-width: 1000px;
   margin: 0 auto;
-  padding: 32px 24px;
+  padding: 16px 24px 24px;
 }
 
 .page-head {
-  margin-bottom: 24px;
+  margin-bottom: 16px;
 }
 .page-title {
-  font-size: 24px;
+  font-size: 26px;
   font-weight: 600;
   color: var(--db-text);
   margin: 0 0 6px;
@@ -310,13 +353,13 @@ async function launchDebugBrowser() {
   margin-bottom: 20px;
 }
 .section-icon {
-  width: 40px;
-  height: 40px;
-  border-radius: 12px;
+  width: 52px;
+  height: 52px;
+  border-radius: 15px;
   display: flex;
   align-items: center;
   justify-content: center;
-  font-size: 20px;
+  font-size: 26px;
   flex-shrink: 0;
 }
 .section-icon.llm {
@@ -331,13 +374,17 @@ async function launchDebugBrowser() {
   background: #fff4e5;
   color: #f59f00;
 }
+.section-icon.audit {
+  background: #eef0ff;
+  color: #7c6cf5;
+}
 .section-title {
   font-size: 16px;
   font-weight: 600;
   color: var(--db-text);
 }
 .section-desc {
-  font-size: 12px;
+  font-size: 13px;
   color: var(--db-text-muted);
   margin-top: 2px;
 }

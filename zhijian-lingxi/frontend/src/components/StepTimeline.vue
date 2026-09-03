@@ -13,6 +13,14 @@
         </el-tag>
         <span class="target">{{ s.target_element || "—" }}</span>
       </div>
+      <div v-if="s.clicked_info && (s.clicked_info.text || s.clicked_info.href)" class="clicked">
+        <el-icon><Mouse /></el-icon>
+        <span>
+          真实点到了
+          <b v-if="s.clicked_info.text">「{{ s.clicked_info.text }}」</b>
+          <a v-if="s.clicked_info.href" :href="s.clicked_info.href" target="_blank" rel="noopener">{{ s.clicked_info.href }}</a>
+        </span>
+      </div>
       <div v-if="s.page_url" class="page-url">
         <el-icon><Link /></el-icon>
         <a :href="s.page_url" target="_blank" rel="noopener">{{ s.page_url }}</a>
@@ -45,10 +53,20 @@ const actionLabels: Record<string, string> = {
   wait: "等待",
   hover: "悬停",
   press_key: "按键",
+  reload: "刷新网页",
+  back: "后退",
+  forward: "前进",
+  close_tab: "关闭网页",
+  foreach: "遍历列表",
+  foreach_if: "逐条检查",
+  set_var: "设置变量",
   goto: "转到步骤",
   if_text: "按文字判断",
   if_element: "按内容判断",
   if_var: "按结果判断",
+  ocr: "OCR 读图",
+  llm_extract: "AI 抽取",
+  export: "导出报表",
 };
 
 function actionLabel(type: string) {
@@ -74,6 +92,25 @@ function actionLabel(type: string) {
   color: #b88230;
   font-size: 12px;
   margin-top: 4px;
+}
+.clicked {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 12px;
+  color: #18a058;
+  margin-top: 4px;
+  word-break: break-all;
+}
+.clicked b {
+  font-weight: 600;
+}
+.clicked a {
+  color: #18a058;
+  text-decoration: none;
+}
+.clicked a:hover {
+  text-decoration: underline;
 }
 .page-url {
   display: flex;

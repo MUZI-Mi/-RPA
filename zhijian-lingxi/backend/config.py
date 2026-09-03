@@ -24,6 +24,7 @@ else:
 DATA_DIR = BASE_DIR / "data"
 SCREENSHOT_DIR = DATA_DIR / "screenshots"
 REPORT_DIR = DATA_DIR / "reports"
+EXPORT_DIR = DATA_DIR / "exports"
 TEMPLATE_DIR = BASE_DIR / "templates"
 DB_PATH = DATA_DIR / "app.db"
 
@@ -53,7 +54,7 @@ LLM_PROVIDERS = [
         "model": "glm-4-flash-250414",
         "vl_model": "glm-4v-flash",
         "note": "GLM-4-Flash 永久免费，中文能力优秀",
-        "register_url": "https://open.bigmodel.cn/usercenter/apikeys",
+        "register_url": "https://open.bigmodel.cn/",
     },
     {
         "id": "siliconflow",
@@ -109,5 +110,5 @@ BROWSER_PROFILE_DIR = _BROWSER_PROFILE_ROOT / "zhijian-lingxi" / "browser_profil
 
 def ensure_dirs() -> None:
     """确保运行时目录存在。"""
-    for d in (DATA_DIR, SCREENSHOT_DIR, REPORT_DIR):
+    for d in (DATA_DIR, SCREENSHOT_DIR, REPORT_DIR, EXPORT_DIR, TEMPLATE_DIR):
         d.mkdir(parents=True, exist_ok=True)

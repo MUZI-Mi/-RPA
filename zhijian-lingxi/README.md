@@ -27,8 +27,12 @@ zhijian-lingxi/
 cd backend
 pip install -r requirements.txt
 playwright install chromium
-uvicorn main:app --host 127.0.0.1 --port 8710 --reload
+uvicorn main:app --host 127.0.0.1 --port 8710
 ```
+
+> Windows 下**不要加 `--reload`**：`--reload` 会让 uvicorn 改用 SelectorEventLoop，
+> 而它不支持子进程，Playwright 启动浏览器驱动会直接抛 `NotImplementedError`，
+> 表现为任务执行 steps=0 直接失败。改代码后手动重启后端即可。
 
 ### 前端
 

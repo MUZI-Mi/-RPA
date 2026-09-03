@@ -119,19 +119,19 @@ onMounted(load);
 
 <style scoped>
 .page {
-  max-width: 900px;
+  max-width: 1000px;
   margin: 0 auto;
-  padding: 32px 24px;
+  padding: 16px 24px 24px;
 }
 
 .page-head {
   display: flex;
   justify-content: space-between;
   align-items: flex-start;
-  margin-bottom: 24px;
+  margin-bottom: 16px;
 }
 .page-title {
-  font-size: 24px;
+  font-size: 26px;
   font-weight: 600;
   color: var(--db-text);
   margin: 0 0 6px;
@@ -157,7 +157,7 @@ onMounted(load);
   margin-bottom: 6px;
 }
 .summary-value {
-  font-size: 14px;
+  font-size: 16px;
   font-weight: 500;
   color: var(--db-text);
 }

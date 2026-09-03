@@ -3,7 +3,7 @@
     <!-- 对话区 -->
     <div class="chat-area" ref="chatAreaRef">
       <!-- 空状态：居中大标题（豆包风格） -->
-      <div v-if="!config && !nlText" class="welcome">
+      <div v-if="!config && !userMessages.length && !nlText" class="welcome">
         <div class="welcome-avatar">
           <el-icon><MagicStick /></el-icon>
         </div>
@@ -11,9 +11,9 @@
         <p class="welcome-sub">用一句话描述需求，我来帮你自动完成网页操作</p>
       </div>
 
-      <!-- 用户消息气泡 -->
-      <div v-if="userMessage" class="msg-row user-row">
-        <div class="bubble user-bubble">{{ userMessage }}</div>
+      <!-- 用户消息气泡（可多次发送，逐条展示） -->
+      <div v-for="(m, i) in userMessages" :key="i" class="msg-row user-row">
+        <div class="bubble user-bubble">{{ m }}</div>
       </div>
 
       <!-- AI 解析结果气泡 -->
@@ -23,8 +23,25 @@
         </div>
         <div class="bubble ai-bubble">
           <div class="ai-bubble-head">
-            <span class="ai-name">已为你生成自动化方案</span>
-            <el-tag size="small" type="success" effect="light">解析成功</el-tag>
+            <span class="ai-name">{{ refinedCount ? "已按你的要求更新方案" : "已为你生成自动化方案" }}</span>
+            <el-tag size="small" :type="refinedCount ? 'warning' : 'success'" effect="light">
+              {{ refinedCount ? `已更新（第 ${refinedCount} 次）` : "解析成功" }}
+            </el-tag>
+          </div>
+
+          <!-- 方案确认：AI 用大白话返回任务规则，供非技术用户确认 -->
+          <div class="confirm-panel">
+            <div class="confirm-title">
+              <el-icon class="confirm-icon"><CircleCheckFilled /></el-icon>
+              请确认这个方案
+            </div>
+            <p class="confirm-sub">我会按下面的顺序一步一步操作：</p>
+            <ol class="confirm-list">
+              <li v-for="s in config.steps" :key="s.step_id">{{ stepNote(s) }}</li>
+            </ol>
+            <p class="confirm-tip">
+              确认无误后点下方「保存并运行」开始；还想调整，直接在下面再发一句告诉我就行，我会更新方案。
+            </p>
           </div>
 
           <!-- 任务配置表单 -->
@@ -70,9 +87,16 @@
           <div class="steps-panel">
             <div class="steps-head">
               <span>执行步骤（{{ config.steps.length }}）</span>
-              <el-button size="small" round @click="addStep">
-                <el-icon><Plus /></el-icon>添加步骤
-              </el-button>
+              <el-space :size="8">
+                <el-tooltip content="插入「打开第1个→关闭→第2个→…」的循环模板" placement="top">
+                  <el-button size="small" round type="success" @click="insertLoop">
+                    <el-icon><Refresh /></el-icon>插入循环
+                  </el-button>
+                </el-tooltip>
+                <el-button size="small" round @click="addStep">
+                  <el-icon><Plus /></el-icon>添加步骤
+                </el-button>
+              </el-space>
             </div>
             <draggable
               :list="config.steps"
@@ -107,29 +131,14 @@
 
     <!-- 底部输入区（豆包式胶囊输入框） -->
     <div class="input-zone">
-      <!-- 建议卡片 -->
-      <div v-if="!config" class="suggestions">
-        <div
-          v-for="s in suggestions"
-          :key="s.text"
-          class="suggestion-card"
-          @click="applySuggestion(s.text)"
-        >
-          <el-icon class="sug-icon"><component :is="s.icon" /></el-icon>
-          <div class="sug-text">
-            <div class="sug-title">{{ s.title }}</div>
-            <div class="sug-desc">{{ s.desc }}</div>
-          </div>
-        </div>
-      </div>
-
       <div class="input-box">
         <el-input
           v-model="nlText"
           type="textarea"
-          :rows="2"
+          :rows="1"
+          :autosize="{ minRows: 1, maxRows: 6 }"
           resize="none"
-          placeholder="描述你想让 AI 自动完成的事情，例如：每天早上9点打开钉钉签到"
+          placeholder="描述你想让 AI 自动完成的事情，例如：打开哔哩哔哩点击热门第一个视频"
           @keydown.ctrl.enter="handleParse"
         />
         <div class="input-toolbar">
@@ -153,10 +162,13 @@
           </button>
         </div>
       </div>
-      <div class="input-tip">Ctrl + Enter 快速发送 · 解析结果需确认后才会执行</div>
+      <div class="input-tip">Ctrl + Enter 快速发送 · 可多次发消息调整方案，确认无误后再执行</div>
     </div>
 
     <RuleEditor v-model="editorVisible" :step="editingStep" :steps="config?.steps" @save="saveStep" />
+
+    <!-- 右上角使用指引气泡（首次访问自动弹出） -->
+    <GuideBubble />
   </div>
 </template>
 
@@ -169,6 +181,7 @@ import type { Step, TaskConfig } from "@/types";
 import * as api from "@/api";
 import RuleCard from "@/components/RuleCard.vue";
 import RuleEditor from "@/components/RuleEditor.vue";
+import GuideBubble from "@/components/GuideBubble.vue";
 import { useTaskStore } from "@/stores/task";
 
 const router = useRouter();
@@ -177,7 +190,8 @@ const taskStore = useTaskStore();
 const editTaskId = ref<string | null>(null);
 
 const nlText = ref("");
-const userMessage = ref("");
+const userMessages = ref<string[]>([]);
+const refinedCount = ref(0);
 const parsing = ref(false);
 const saving = ref(false);
 const recording = ref(false);
@@ -188,13 +202,6 @@ const editorVisible = ref(false);
 const editingIndex = ref(-1);
 const editingStep = ref<Step | null>(null);
 
-const suggestions = [
-  { icon: "AlarmClock", title: "定时签到", desc: "每天早上9点打开钉钉签到", text: "每天早上9点打开钉钉签到" },
-  { icon: "Search", title: "信息采集", desc: "打开百度搜索大创项目并保存结果", text: "打开百度搜索大创项目，把第一条结果标题保存下来" },
-  { icon: "Document", title: "表单填写", desc: "把表格数据自动填到系统里", text: "打开OA系统，把本周工作周报填写到周报表单里" },
-  { icon: "Download", title: "文件下载", desc: "定时下载最新报表", text: "每周一早上8点打开财务系统下载最新月度报表" },
-];
-
 const defaultConfig: TaskConfig = {
   task_name: "新任务",
   description: "",
@@ -203,9 +210,22 @@ const defaultConfig: TaskConfig = {
   steps: [],
 };
 
-function applySuggestion(text: string) {
-  nlText.value = text;
-  handleParse();
+// 方案确认列表：优先用 AI 生成的大白话说明；个别步骤没生成时兜底用动作名+关键参数
+function stepNote(s: Step): string {
+  const n = s.note?.trim();
+  if (n) return n;
+  const a = s.action;
+  const labels: Record<string, string> = {
+    open: "打开网页", click: "点击", input: "输入", select: "选择", upload: "上传",
+    scroll: "滚动", extract: "提取", wait: "等待", hover: "悬停", press_key: "按键",
+    reload: "刷新当前网页", back: "后退一页", forward: "前进一页",
+    close_tab: "关闭网页", foreach: "逐个打开并关闭列表中的内容", foreach_if: "逐条检查：命中的才处理，其余跳过", set_var: "设置变量",
+    goto: "跳到指定步骤", if_text: "按文字判断", if_element: "按内容判断", if_var: "按结果判断",
+    ocr: "OCR 读图（把图片变成文字）", llm_extract: "AI 抽取关键信息", export: "导出报表（数据文件）",
+  };
+  const base = labels[a.type] || a.type;
+  const detail = a.url || a.text || a.value || a.selector || "";
+  return detail ? `${base}：${detail}` : base;
 }
 
 function scrollToBottom() {
@@ -231,16 +251,26 @@ onMounted(async () => {
 
 async function handleParse() {
   if (!nlText.value.trim() || parsing.value) return;
-  userMessage.value = nlText.value.trim();
+  const text = nlText.value.trim();
+  userMessages.value.push(text);
+  nlText.value = "";
   parsing.value = true;
   scrollToBottom();
   try {
-    const res = await api.parseNL(userMessage.value);
-    config.value = res.config;
-    ElMessage.success("解析成功，请确认后运行");
+    if (config.value) {
+      // 已有方案 → 按用户新要求多轮修改
+      const res = await api.refineNL(text, config.value);
+      config.value = res.config;
+      refinedCount.value += 1;
+      ElMessage.success("已按你的要求更新方案，请再次确认");
+    } else {
+      const res = await api.parseNL(text);
+      config.value = res.config;
+      ElMessage.success("解析成功，请确认后运行");
+    }
   } catch (e: any) {
-    ElMessage.error(e?.response?.data?.detail || "解析失败");
-    userMessage.value = "";
+    ElMessage.error(e?.response?.data?.detail || "处理失败");
+    userMessages.value.pop();
   } finally {
     parsing.value = false;
     scrollToBottom();
@@ -255,7 +285,8 @@ function openManual() {
 
 function resetChat() {
   config.value = null;
-  userMessage.value = "";
+  userMessages.value = [];
+  refinedCount.value = 0;
   nlText.value = "";
 }
 
@@ -264,6 +295,25 @@ function addStep() {
   config.value = cfg;
   const step: Step = { step_id: cfg.steps.length + 1, condition: { type: "always" }, action: { type: "click" } };
   cfg.steps.push(step);
+}
+
+// 插入「打开第1个→关闭→第2个→…」的循环模板：
+// set_var i=1 → click 第{{i}}个 → wait → close_tab → set_var i+1 → if_var i>N 结束否则跳回 click
+function insertLoop() {
+  const cfg = config.value || JSON.parse(JSON.stringify(defaultConfig));
+  config.value = cfg;
+  const start = cfg.steps.length;
+  const clickStep = start + 2; // 循环体内「点击第{{i}}个」的 step_id
+  const loopSteps: Step[] = [
+    { step_id: start + 1, condition: { type: "always" }, action: { type: "set_var", var: "i", op: "set", value: "1" } },
+    { step_id: start + 2, condition: { type: "always" }, action: { type: "click", selector: "请填写第 {{i}} 个目标的定位", text: "打开第 {{i}} 个目标" } },
+    { step_id: start + 3, condition: { type: "always" }, action: { type: "wait", value: "2" } },
+    { step_id: start + 4, condition: { type: "always" }, action: { type: "close_tab" } },
+    { step_id: start + 5, condition: { type: "always" }, action: { type: "set_var", var: "i", op: "inc", value: "1" } },
+    { step_id: start + 6, condition: { type: "always" }, action: { type: "if_var", var: "i", op: "greater", value: "3", goto_if_found: null, goto_if_not: clickStep } },
+  ];
+  cfg.steps.push(...loopSteps);
+  ElMessage.info('已插入循环模板：点第{{i}}个 → 关闭 → 下一个。请修改第3步定位为实际内容，并把第8步循环次数改为所需值');
 }
 
 function editStep(index: number) {
@@ -306,6 +356,7 @@ async function handleSave() {
 
 async function handleRecord() {
   if (!recording.value) {
+    let startUrl = "";
     try {
       const { value } = await ElMessageBox.prompt(
         "请输入要录制操作的起始网址",
@@ -319,12 +370,26 @@ async function handleRecord() {
           inputErrorMessage: "请输入以 http:// 或 https:// 开头的完整网址",
         }
       );
-      await api.startRecording(value.trim());
+      startUrl = value.trim();
+      await api.startRecording(startUrl);
       recording.value = true;
       ElMessage.info("录制中，请在打开的浏览器窗口操作");
     } catch (e: any) {
       // 用户取消弹框时 ElMessageBox 会 reject，忽略即可
       if (e === "cancel" || e === "close") return;
+      // 上一次录制残留未结束（录制窗口被关/卡住）→ 强制清理后自动重试一次
+      if (e?.response?.status === 409) {
+        try {
+          await api.forceStopRecording();
+          await api.startRecording(startUrl);
+          recording.value = true;
+          ElMessage.info("已清理上次残留的录制，重新开始录制，请在打开的浏览器窗口操作");
+          return;
+        } catch (e2: any) {
+          ElMessage.error(e2?.response?.data?.detail || "录制启动失败，仍被占用");
+          return;
+        }
+      }
       ElMessage.error(e?.response?.data?.detail || "录制启动失败");
     }
   } else {
@@ -349,7 +414,7 @@ async function handleRecord() {
   height: 100%;
   display: flex;
   flex-direction: column;
-  max-width: 860px;
+  max-width: 1000px;
   margin: 0 auto;
   padding: 0 24px;
 }
@@ -360,36 +425,36 @@ async function handleRecord() {
   overflow-y: auto;
   display: flex;
   flex-direction: column;
-  padding-top: 40px;
+  padding-top: 16px;
 }
 
 /* 欢迎区（豆包居中大标题） */
 .welcome {
   margin: auto;
   text-align: center;
-  padding-bottom: 40px;
+  padding-bottom: 24px;
 }
 .welcome-avatar {
-  width: 64px;
-  height: 64px;
-  margin: 0 auto 20px;
-  border-radius: 20px;
+  width: 56px;
+  height: 56px;
+  margin: 0 auto 16px;
+  border-radius: 16px;
   background: linear-gradient(135deg, #2e6ef5, #7aa5f9);
   color: #fff;
-  font-size: 32px;
+  font-size: 28px;
   display: flex;
   align-items: center;
   justify-content: center;
   box-shadow: 0 8px 24px rgba(46, 110, 245, 0.35);
 }
 .welcome-title {
-  font-size: 30px;
-  font-weight: 600;
+  font-size: 36px;
+  font-weight: 700;
   color: var(--db-text);
-  margin: 0 0 10px;
+  margin: 0 0 20px;
 }
 .welcome-sub {
-  font-size: 15px;
+  font-size: 16px;
   color: var(--db-text-secondary);
   margin: 0;
 }
@@ -403,11 +468,11 @@ async function handleRecord() {
   justify-content: flex-end;
 }
 .bubble {
-  max-width: 78%;
-  padding: 12px 16px;
+  max-width: 680px;
+  padding: 16px 20px;
   border-radius: 16px;
-  font-size: 14px;
-  line-height: 1.6;
+  font-size: 16px;
+  line-height: 24px;
 }
 .user-bubble {
   background: var(--db-primary);
@@ -436,7 +501,9 @@ async function handleRecord() {
   border-radius: 4px 16px 16px 16px;
   box-shadow: var(--db-shadow);
   flex: 1;
-  max-width: none;
+  max-width: 680px;
+  font-size: 16px;
+  line-height: 26px;
 }
 .ai-bubble-head {
   display: flex;
@@ -447,6 +514,47 @@ async function handleRecord() {
 .ai-name {
   font-weight: 600;
   font-size: 15px;
+}
+
+/* 方案确认面板（自然语言规则） */
+.confirm-panel {
+  background: #f0f9eb;
+  border: 1px solid #d3ecbd;
+  border-radius: 12px;
+  padding: 14px 18px;
+  margin-bottom: 14px;
+}
+.confirm-title {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 15px;
+  font-weight: 600;
+  color: #529b2e;
+  margin-bottom: 6px;
+}
+.confirm-icon {
+  font-size: 16px;
+}
+.confirm-sub {
+  font-size: 13px;
+  color: var(--db-text-secondary);
+  margin: 0 0 6px;
+}
+.confirm-list {
+  margin: 0;
+  padding-left: 22px;
+}
+.confirm-list li {
+  font-size: 16px;
+  color: var(--db-text);
+  line-height: 26px;
+}
+.confirm-tip {
+  font-size: 12px;
+  color: #8a8f99;
+  line-height: 1.6;
+  margin: 8px 0 0;
 }
 
 /* 配置面板 */
@@ -515,54 +623,14 @@ async function handleRecord() {
 
 /* ===== 底部输入区 ===== */
 .input-zone {
-  padding: 12px 0 20px;
-}
-
-.suggestions {
-  display: grid;
-  grid-template-columns: repeat(2, 1fr);
-  gap: 10px;
-  margin-bottom: 14px;
-}
-.suggestion-card {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  padding: 12px 14px;
-  background: #fff;
-  border: 1px solid var(--db-border);
-  border-radius: 12px;
-  cursor: pointer;
-  transition: all 0.2s;
-}
-.suggestion-card:hover {
-  border-color: var(--db-primary);
-  box-shadow: var(--db-shadow-hover);
-  transform: translateY(-1px);
-}
-.sug-icon {
-  font-size: 20px;
-  color: var(--db-primary);
-  background: var(--db-primary-light);
-  border-radius: 8px;
-  padding: 6px;
-}
-.sug-title {
-  font-size: 13px;
-  font-weight: 600;
-  color: var(--db-text);
-}
-.sug-desc {
-  font-size: 12px;
-  color: var(--db-text-muted);
-  margin-top: 2px;
+  padding: 10px 0 16px;
 }
 
 .input-box {
   background: #fff;
   border: 1px solid var(--db-border);
-  border-radius: 16px;
-  padding: 12px 14px 8px;
+  border-radius: 24px;
+  padding: 12px 16px;
   transition: all 0.2s;
   box-shadow: 0 2px 12px rgba(31, 35, 41, 0.04);
 }

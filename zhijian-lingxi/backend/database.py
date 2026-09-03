@@ -50,7 +50,8 @@ CREATE TABLE IF NOT EXISTS step_logs (
     healing_actions TEXT,
     error_info      TEXT,
     extracted       TEXT,
-    page_url        TEXT
+    page_url        TEXT,
+    clicked_info    TEXT
 );
 
 CREATE TABLE IF NOT EXISTS locator_cache (
@@ -66,6 +67,47 @@ CREATE TABLE IF NOT EXISTS locator_cache (
 CREATE TABLE IF NOT EXISTS settings (
     key   TEXT PRIMARY KEY,
     value TEXT NOT NULL
+);
+
+CREATE TABLE IF NOT EXISTS audit_logs (
+    id          TEXT PRIMARY KEY,
+    operator    TEXT NOT NULL,
+    action      TEXT NOT NULL,
+    target_type TEXT NOT NULL,
+    target_id   TEXT,
+    detail      TEXT,
+    created_at  TEXT NOT NULL
+);
+
+CREATE TABLE IF NOT EXISTS reviews (
+    id                TEXT PRIMARY KEY,
+    task_id           TEXT,
+    execution_id      TEXT,
+    step_id           INTEGER,
+    source            TEXT,
+    raw_data          TEXT,
+    ai_result         TEXT,
+    confidence        REAL,
+    compliance_issues TEXT,
+    status            TEXT DEFAULT 'pending',
+    operator          TEXT,
+    review_note       TEXT,
+    corrected_data    TEXT,
+    created_at        TEXT NOT NULL,
+    reviewed_at       TEXT
+);
+
+CREATE TABLE IF NOT EXISTS templates (
+    id            TEXT PRIMARY KEY,
+    name          TEXT NOT NULL,
+    description   TEXT,
+    category      TEXT DEFAULT 'document',
+    filename      TEXT NOT NULL,
+    original_name TEXT NOT NULL,
+    size          INTEGER,
+    uploader      TEXT,
+    created_at    TEXT NOT NULL,
+    updated_at    TEXT NOT NULL
 );
 """
 
@@ -93,6 +135,8 @@ def _migrate(conn: sqlite3.Connection) -> None:
     cols = [r[1] for r in conn.execute("PRAGMA table_info(step_logs)").fetchall()]
     if "page_url" not in cols:
         conn.execute("ALTER TABLE step_logs ADD COLUMN page_url TEXT")
+    if "clicked_info" not in cols:
+        conn.execute("ALTER TABLE step_logs ADD COLUMN clicked_info TEXT")
 
 
 # === 任务 ===
@@ -211,7 +255,7 @@ def add_step_log(exec_id: str, log: Dict[str, Any]) -> None:
         conn.execute(
             "INSERT INTO step_logs (id, execution_id, step_id, action_type, target_element, "
             "status, duration_ms, screenshot_before, screenshot_after, healing_actions, "
-            "error_info, extracted, page_url) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+            "error_info, extracted, page_url, clicked_info) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
             (
                 log_id,
                 exec_id,
@@ -226,6 +270,7 @@ def add_step_log(exec_id: str, log: Dict[str, Any]) -> None:
                 log.get("error_info"),
                 json.dumps(log.get("extracted"), ensure_ascii=False) if log.get("extracted") is not None else None,
                 log.get("page_url"),
+                json.dumps(log.get("clicked_info"), ensure_ascii=False) if log.get("clicked_info") is not None else None,
             ),
         )
 
@@ -239,10 +284,60 @@ def list_step_logs(exec_id: str) -> List[Dict[str, Any]]:
     for r in rows:
         d = dict(r)
         d["healing_actions"] = json.loads(d.get("healing_actions") or "[]")
+        if d.get("clicked_info"):
+            try:
+                d["clicked_info"] = json.loads(d["clicked_info"])
+            except (ValueError, TypeError):
+                d["clicked_info"] = None
         if d.get("extracted"):
             d["extracted"] = json.loads(d["extracted"])
         result.append(d)
     return result
+
+
+# === 模板 ===
+def create_template(
+    name: str,
+    filename: str,
+    original_name: str,
+    description: str = "",
+    category: str = "document",
+    size: Optional[int] = None,
+    uploader: Optional[str] = None,
+) -> str:
+    tpl_id = str(uuid.uuid4())
+    now = _now()
+    with get_conn() as conn:
+        conn.execute(
+            "INSERT INTO templates (id, name, description, category, filename, original_name, size, "
+            "uploader, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+            (tpl_id, name, description, category, filename, original_name, size, uploader, now, now),
+        )
+    return tpl_id
+
+
+def list_templates() -> List[Dict[str, Any]]:
+    with get_conn() as conn:
+        rows = conn.execute("SELECT * FROM templates ORDER BY created_at DESC").fetchall()
+    return [dict(r) for r in rows]
+
+
+def get_template(tpl_id: str) -> Optional[Dict[str, Any]]:
+    with get_conn() as conn:
+        row = conn.execute("SELECT * FROM templates WHERE id = ?", (tpl_id,)).fetchone()
+    return dict(row) if row else None
+
+
+def get_template_by_name(name: str) -> Optional[Dict[str, Any]]:
+    with get_conn() as conn:
+        row = conn.execute("SELECT * FROM templates WHERE name = ?", (name,)).fetchone()
+    return dict(row) if row else None
+
+
+def delete_template(tpl_id: str) -> bool:
+    with get_conn() as conn:
+        cur = conn.execute("DELETE FROM templates WHERE id = ?", (tpl_id,))
+    return cur.rowcount > 0
 
 
 # === 定位缓存 ===

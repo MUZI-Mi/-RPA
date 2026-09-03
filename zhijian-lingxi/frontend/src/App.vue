@@ -57,6 +57,9 @@ const activeMenu = computed(() => {
 const navItems = [
   { path: "/", label: "指令输入", icon: "ChatLineSquare" },
   { path: "/tasks", label: "任务管理", icon: "List" },
+  { path: "/reviews", label: "审核队列", icon: "Stamp" },
+  { path: "/templates", label: "模板中心", icon: "Files" },
+  { path: "/audit", label: "审计日志", icon: "DocumentChecked" },
   { path: "/settings", label: "设置", icon: "Setting" },
 ];
 </script>
@@ -70,7 +73,7 @@ const navItems = [
 
 /* ===== 侧边栏 ===== */
 .sidebar {
-  width: 240px;
+  width: 280px;
   flex-shrink: 0;
   display: flex;
   flex-direction: column;
@@ -89,7 +92,8 @@ const navItems = [
   display: flex;
   align-items: center;
   gap: 10px;
-  padding: 4px 8px;
+  height: 60px;
+  padding: 0 8px;
 }
 
 .logo-icon {
@@ -106,7 +110,7 @@ const navItems = [
 }
 
 .logo-text {
-  font-size: 17px;
+  font-size: 20px;
   font-weight: 600;
   color: var(--db-text);
   letter-spacing: 1px;
