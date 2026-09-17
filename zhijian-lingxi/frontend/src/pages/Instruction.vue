@@ -222,6 +222,9 @@ function stepNote(s: Step): string {
     close_tab: "关闭网页", foreach: "逐个打开并关闭列表中的内容", foreach_if: "逐条检查：命中的才处理，其余跳过", set_var: "设置变量",
     goto: "跳到指定步骤", if_text: "按文字判断", if_element: "按内容判断", if_var: "按结果判断",
     ocr: "OCR 读图（把图片变成文字）", llm_extract: "AI 抽取关键信息", export: "导出报表（数据文件）",
+    read_excel: "读取本地 Excel 文件", read_csv: "读取本地 CSV 文件", read_pdf: "读取本地 PDF 文件",
+    ocr_to_json: "OCR 识别图片为表格", data_clean: "数据清洗（去重/补空/统一格式）",
+    llm_summarize: "AI 总结与异常预警",
   };
   const base = labels[a.type] || a.type;
   const detail = a.url || a.text || a.value || a.selector || "";

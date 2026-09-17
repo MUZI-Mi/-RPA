@@ -48,7 +48,7 @@ RULE_SCHEMA = {
                                     "reload", "back", "forward", "close_tab", "set_var",
                                     "goto", "if_text", "if_element", "if_var", "foreach",
                                     "foreach_if", "ocr", "llm_extract", "export",
-                                    "read_excel", "read_csv", "ocr_to_json", "data_clean",
+                                    "read_excel", "read_csv", "read_pdf", "ocr_to_json", "data_clean",
                                     "llm_summarize",
                                 ]
                             }
@@ -66,7 +66,7 @@ ACTION_TYPES = {
     "reload", "back", "forward", "close_tab", "set_var",
     "goto", "if_text", "if_element", "if_var", "foreach", "foreach_if",
     "ocr", "llm_extract", "export",
-    "read_excel", "read_csv", "ocr_to_json", "data_clean", "llm_summarize",
+    "read_excel", "read_csv", "read_pdf", "ocr_to_json", "data_clean", "llm_summarize",
 }
 CONDITION_TYPES = {"page_load", "element_visible", "text_appears", "always"}
 # 控制流动作：只改变执行指针，不操作页面

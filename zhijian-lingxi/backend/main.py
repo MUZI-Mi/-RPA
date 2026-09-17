@@ -6,6 +6,21 @@
 
 from __future__ import annotations
 
+import sys
+
+# PyInstaller --noconsole 打包下 stdout/stderr 为 None，uvicorn 日志写 stderr 会崩。
+# 统一重定向到后端数据目录下的 logs 文件，兼作无窗口模式排障日志。
+if sys.stdout is None or sys.stderr is None:
+    import config as _config
+    _config.ensure_dirs()
+    _logs_dir = _config.DATA_DIR / "logs"
+    _logs_dir.mkdir(parents=True, exist_ok=True)
+    _log_file = open(_logs_dir / "backend.log", "a", encoding="utf-8", buffering=1)
+    if sys.stdout is None:
+        sys.stdout = _log_file
+    if sys.stderr is None:
+        sys.stderr = _log_file
+
 import asyncio
 import os
 import shutil
@@ -86,7 +101,7 @@ async def _run_task_by_id(task_id: str) -> None:
         # 用户可选择「显示执行窗口」：默认可见（headless=False），勾选与否都先以可见窗口运行
         show_browser = str(db.get_setting("show_browser", "true")).lower() in ("true", "1")
         # 浏览器模式：builtin=内置浏览器；attach=接管用户已调试启动的浏览器
-        browser_mode = str(db.get_setting("browser_mode", "builtin")).lower()
+        browser_mode = str(db.get_setting("browser_mode", "attach")).lower()
         attach_url = None
         if browser_mode == "attach":
             attach_url = str(db.get_setting("cdp_url", f"http://127.0.0.1:{config.BROWSER_CDP_PORT}"))

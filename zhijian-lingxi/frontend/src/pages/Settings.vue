@@ -210,7 +210,7 @@ const form = reactive<Record<string, any>>({
   report_retention_days: 30,
   missed_run: true,
   show_browser: true,
-  browser_mode: "builtin",
+  browser_mode: "attach",
   cdp_url: "http://127.0.0.1:9222",
   wechat_webhook: "",
   smtp_host: "",

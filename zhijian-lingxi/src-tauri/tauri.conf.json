@@ -37,6 +37,6 @@
     ]
   },
   "plugins": {
-    "notification": {}
+    "notification": null
   }
 }

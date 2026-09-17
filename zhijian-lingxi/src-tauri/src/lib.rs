@@ -13,24 +13,41 @@ struct BackendProcess(Mutex<Option<Child>>);
 /// 启动 FastAPI 后端子进程，返回子进程句柄供退出时清理
 fn start_backend() -> Option<Child> {
     let exe = std::env::current_exe().ok()?;
-    // 打包后 exe 位置：<安装目录>/main.exe（或 target/release/main.exe）
+    // 打包后壳 exe 位置：<安装/分发目录>/智简灵析.exe
     let base_dir = exe.parent()?.to_path_buf();
 
-    // 后端打包后放在 exe 同级的 backend/main(.exe)，开发时跳过
-    let backend_exe = base_dir.join("backend").join("main");
-    let backend_exe = if cfg!(windows) {
-        backend_exe.with_extension("exe")
+    // 后端打包产物按如下候选位置查找（顺序匹配第一个存在的）：
+    //   1) exe 同级 backend/智简灵析后端.exe   —— 推荐分发布局
+    //   2) exe 同级 智简灵析后端.exe           —— 直接与壳放同一目录
+    //   3) exe 同级 backend/main(.exe)         —— 旧约定（兼容）
+    // 开发模式（target/debug、无后端产物）自然跳过，不会误拉起。
+    let mut candidates = vec![base_dir.join("backend").join("智简灵析后端.exe")];
+    if cfg!(windows) {
+        candidates.push(base_dir.join("智简灵析后端.exe"));
+        candidates.push(base_dir.join("backend").join("main.exe"));
     } else {
-        backend_exe
-    };
-
-    if !backend_exe.exists() {
-        eprintln!("[智简灵析] 后端可执行文件不存在，跳过启动: {:?}", backend_exe);
-        return None;
+        candidates.push(base_dir.join("智简灵析后端"));
+        candidates.push(base_dir.join("backend").join("main"));
     }
 
+    let mut backend_exe = None;
+    for cand in &candidates {
+        if cand.exists() {
+            backend_exe = Some(cand.clone());
+            break;
+        }
+    }
+
+    let backend_exe = match backend_exe {
+        Some(path) => path,
+        None => {
+            eprintln!("[智简灵析] 未找到后端可执行文件，跳过启动（开发模式属正常）");
+            return None;
+        }
+    };
+
     match Command::new(&backend_exe)
-        .current_dir(base_dir.join("backend"))
+        .current_dir(backend_exe.parent().unwrap_or(&base_dir))
         .spawn()
     {
         Ok(child) => Some(child),

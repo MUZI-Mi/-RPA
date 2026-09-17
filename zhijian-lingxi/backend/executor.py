@@ -802,6 +802,12 @@ class TaskExecutor:
             if not action.get("save_as"):
                 context_vars["__table"] = result
             return result
+        if atype == "read_pdf":
+            result = await self._action_read_pdf(action)
+            # 未显式 save_as 时自动写入 __table，供 data_clean/llm_summarize/export 流水线使用
+            if not action.get("save_as"):
+                context_vars["__table"] = result
+            return result
         if atype == "ocr_to_json":
             return await self._action_ocr_to_json(page, action, context_vars, ctx)
         if atype == "data_clean":
@@ -828,11 +834,27 @@ class TaskExecutor:
             await page.keyboard.press(action.get("keys", "Enter"))
             return None
         if atype == "upload":
+            files = action.get("files", [])
             kind, val = await self.operator._resolve_locator(
                 page, action.get("selector", ""), intent or "上传文件", ctx
             )
-            if kind == "locator":
-                await val.set_input_files(action.get("files", []))
+            if kind != "locator":
+                return None
+            try:
+                # 标准 <input type=file>：Playwright 直接塞文件，不弹系统对话框
+                await val.set_input_files(files)
+                return None
+            except Exception:
+                pass  # 元素不是文件输入框 → 走 filechooser 拦截系统对话框兜底
+            # 兜底：点击触发系统的文件选择框，用 filechooser 事件拦截并填入文件
+            # （覆盖上传控件不是 <input type=file>、而是按钮点击后弹原生对话框的场景）
+            try:
+                async with page.expect_file_chooser(timeout=10000) as fc_info:
+                    await val.click(timeout=8000)
+                fc = await fc_info.value
+                await fc.set_files(files)
+            except Exception:
+                pass
             return None
         if atype == "reload":
             try:
@@ -1079,19 +1101,46 @@ class TaskExecutor:
         return p
 
     def _action_read_excel(self, action: Dict[str, Any]) -> List[Dict[str, Any]]:
-        """读取本地 Excel 文件为表格数据（[{列: 值}, ...]）。"""
-        from openpyxl import load_workbook
+        """读取本地 Excel 文件为表格数据（[{列: 值}, ...]）。
 
+        .xlsx/.xlsm 用 openpyxl；老式 .xls 用 xlrd（openpyxl 不支持 .xls）。
+        """
         path = self._resolve_file_path(action.get("file_path") or "")
         sheet = (action.get("sheet_name") or "").strip() or None
         has_header = bool(action.get("has_header", True))
-        wb = load_workbook(path, data_only=True)
-        ws = wb[sheet] if sheet and sheet in wb.sheetnames else wb.active
+        if path.suffix.lower() == ".xls":
+            rows_data = self._read_excel_xls_rows(path, sheet)
+        else:
+            from openpyxl import load_workbook
+
+            wb = load_workbook(path, data_only=True)
+            ws = wb[sheet] if sheet and sheet in wb.sheetnames else wb.active
+            rows_data = []
+            for row in ws.iter_rows(values_only=True):
+                if row is None or all(v is None or str(v).strip() == "" for v in row):
+                    continue
+                rows_data.append(list(row))
+        return self._rows_to_dicts(rows_data, has_header)
+
+    def _read_excel_xls_rows(self, path: Path, sheet: Optional[str]) -> List[list]:
+        """老式 .xls 文件读取（xlrd，2.x 仅支持 .xls 不支持 .xlsx，与 openpyxl 互补）。"""
+        try:
+            import xlrd
+        except ImportError:
+            raise RuntimeError("未安装 xlrd，无法读取 .xls 老格式 Excel，请执行 pip install xlrd")
+        wb = xlrd.open_workbook(str(path))
+        ws = wb.sheet_by_name(sheet) if sheet and sheet in wb.sheet_names() else wb.sheet_by_index(0)
         rows_data = []
-        for row in ws.iter_rows(values_only=True):
-            if row is None or all(v is None or str(v).strip() == "" for v in row):
+        for r in range(ws.nrows):
+            row = ws.row_values(r)
+            if all(str(v).strip() == "" for v in row):
                 continue
             rows_data.append(list(row))
+        return rows_data
+
+    @staticmethod
+    def _rows_to_dicts(rows_data: List[list], has_header: bool) -> List[Dict[str, Any]]:
+        """二维行数据 → 列表字典：有表头按表头，无表头按 A/B/C 列名。"""
         if not rows_data:
             return []
         if has_header:
@@ -1125,6 +1174,75 @@ class TaskExecutor:
         for r in rows_data:
             out.append({chr(65 + i): v for i, v in enumerate(r)})
         return out
+
+    async def _action_read_pdf(self, action: Dict[str, Any]) -> List[Dict[str, Any]]:
+        """读取本地 PDF 文件为表格数据（[{列: 值}, ...]）。
+
+        - pdf_extract=text ：pdfplumber 抽每页文字 → {"页码": n, "内容": "..."}
+        - pdf_extract=table：抽取每页表格 → 按表头生成行
+        - pdf_extract=ocr  ：扫描件 PDF，用 PyMuPDF 渲染成图后走多模态 OCR
+        - pdf_extract=auto（默认）：无文字层（扫描件）自动转 OCR，否则表格优先/文字兜底
+        - pdf_page：只解析第 N 页（1 起），留空解析全部页
+        """
+        path = self._resolve_file_path(action.get("file_path") or "")
+        mode = (action.get("pdf_extract") or "auto").strip().lower()
+        if mode not in ("auto", "text", "table", "ocr"):
+            raise ValueError(f"未知 PDF 解析方式: {mode}")
+        page_no = action.get("pdf_page")
+        if page_no is not None:
+            page_no = int(page_no)
+            if page_no < 1:
+                raise ValueError("pdf_page 必须从 1 开始")
+        try:
+            import pdfplumber
+        except ImportError:
+            raise RuntimeError("未安装 pdfplumber，无法解析 PDF，请执行 pip install pdfplumber")
+        has_header = bool(action.get("has_header", True))
+        rows: List[Dict[str, Any]] = []
+
+        try:
+            doc = None  # 惰性打开：仅当需要渲染扫描页时
+            with pdfplumber.open(path) as pdf:
+                page_nums = [page_no] if page_no else list(range(1, len(pdf.pages) + 1))
+                for p in page_nums:
+                    if p < 1 or p > len(pdf.pages):
+                        raise ValueError(f"PDF 共 {len(pdf.pages)} 页，没有第 {p} 页")
+                    page = pdf.pages[p - 1]
+                    text = (page.extract_text() or "").strip()
+                    tables = page.extract_tables() or []
+                    is_scanned = not text and not tables
+                    if mode == "ocr" or (mode == "auto" and is_scanned):
+                        try:
+                            import pymupdf as fitz  # PyMuPDF
+                        except ImportError:
+                            raise RuntimeError("未安装 PyMuPDF（pymupdf），无法解析扫描件 PDF，请执行 pip install pymupdf")
+                        if doc is None:
+                            doc = fitz.open(str(path))
+                        pix = doc[p - 1].get_pixmap(dpi=200)
+                        text = (await LLMClient.ocr(pix.tobytes("png"))).strip()
+                        if text:
+                            rows.append({"页码": p, "内容": text})
+                        continue
+                    if mode in ("table", "auto") and tables:
+                        for t in tables:
+                            if not t or all((v in (None, "")) for r in t for v in (r or [])):
+                                continue
+                            if has_header:
+                                header = [str(h).strip() if h is not None else "" for h in t[0]]
+                                for r in t[1:]:
+                                    rows.append({header[i]: (r[i] if i < len(r) else "") for i in range(len(header))})
+                            else:
+                                for r in t:
+                                    rows.append({chr(65 + i): (v if i < len(r) else "") for i, v in enumerate(r)})
+                        continue
+                    if mode in ("text", "auto") and text:
+                        rows.append({"页码": p, "内容": text})
+        finally:
+            try:
+                doc.close()
+            except Exception:
+                pass
+        return rows
 
     async def _action_ocr_to_json(
         self, page: Page, action: Dict[str, Any], context_vars: Dict[str, Any],

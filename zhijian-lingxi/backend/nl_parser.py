@@ -30,7 +30,7 @@ SYSTEM_PROMPT = """你是一个网页自动化操作生成器。用户会用自�
    open / click / input / select / extract / wait / scroll / hover / press_key / upload /
    reload / back / forward / close_tab / set_var /
    goto / if_text / if_element / if_var / foreach / foreach_if /
-   ocr / llm_extract / export / read_excel / read_csv / ocr_to_json / data_clean / llm_summarize
+   ocr / llm_extract / export / read_excel / read_csv / read_pdf / ocr_to_json / data_clean / llm_summarize
 4. 普通 action 字段说明：
    - open: {"url": "..."}
    - click: {"selector": "...", "text": "目标元素上可见的精炼文字（2~6字）"}
@@ -54,6 +54,9 @@ SYSTEM_PROMPT = """你是一个网页自动化操作生成器。用户会用自�
      把「逐个打开时收集的每条数据」导出成一个数据文件（报表）。放在遍历步骤之后
    - read_excel / read_csv: {"file_path": "本地文件路径", "has_header": true, "save_as": "..."}
      读取本地 Excel/CSV 文件为表格数据，存进变量（用于报表加工）
+   - read_pdf: {"file_path": "本地PDF文件路径", "pdf_extract": "auto/text/table/ocr", "pdf_page": "可选，只解析第N页", "has_header": true, "save_as": "..."}
+     读取本地 PDF 为表格数据。pdf_extract 默认 auto：自动判断，扫描件（无文字层）自动转 OCR；
+     text=只抽文字（每页一行：页码+内容）；table=抽表格；ocr=强制按扫描件 OCR。存进变量（用于报表加工）
    - ocr_to_json: {"ocr_source": "page/element", "selector": "可选", "fields": "标题,日期,金额", "save_as": "..."}
      截图 → OCR 识别 → 按字段整理成结构化表格（JSON 数组）
    - data_clean: {"source": "变量名或留空(用收集到的表)", "rules": {"dedup": ["去重列"], "fill_empty": {"列": "填充值"}, "date_format": ["日期列"], "drop_columns": ["删除列"]}, "save_as": "..."}

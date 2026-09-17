@@ -35,6 +35,7 @@ export interface Action {
     | "export"
     | "read_excel"
     | "read_csv"
+    | "read_pdf"
     | "ocr_to_json"
     | "data_clean"
     | "llm_summarize";
@@ -61,9 +62,11 @@ export interface Action {
   export_filename?: string;        // export 导出文件名（不含扩展名）
   template_file?: string;          // export 引用的模板名（模板中心）
   _src?: string;                   // 编辑器 UI 用：llm_extract 抽取来源显示
-  // read_excel / read_csv / ocr_to_json / data_clean / llm_summarize
-  file_path?: string;              // read_excel/read_csv 本地文件路径
+  // read_excel / read_csv / read_pdf / ocr_to_json / data_clean / llm_summarize
+  file_path?: string;              // read_excel/read_csv/read_pdf 本地文件路径
   sheet_name?: string;             // read_excel 工作表名
+  pdf_extract?: "auto" | "text" | "table" | "ocr";  // read_pdf 解析方式（auto=扫描件自动OCR）
+  pdf_page?: number | null;        // read_pdf 只解析第 N 页（留空=全部页）
   has_header?: boolean;            // read_excel/read_csv 是否有表头
   encoding?: string;               // read_csv 编码
   delimiter?: string;              // read_csv 分隔符

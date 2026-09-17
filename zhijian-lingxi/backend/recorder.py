@@ -41,8 +41,20 @@ class ActionRecorder:
         session = RecordingSession(start_url)
         pw = await async_playwright().start()
         session.pw = pw
-        browser = await pw.chromium.launch(headless=False)
-        context = await browser.new_context()
+        # 浏览器来源跟随设置：attach=接管用户已调试启动的浏览器（打包版无内置
+        # Chromium，只能走接管）；builtin=Playwright 自带浏览器
+        import database as db
+        import config as _cfg
+
+        browser_mode = str(db.get_setting("browser_mode", "attach")).lower()
+        if browser_mode == "attach":
+            cdp_url = str(db.get_setting("cdp_url", f"http://127.0.0.1:{_cfg.BROWSER_CDP_PORT}"))
+            browser = await pw.chromium.connect_over_cdp(cdp_url)
+            # 录制放在独立的新 context，不干扰用户已有标签页
+            context = await browser.new_context()
+        else:
+            browser = await pw.chromium.launch(headless=False)
+            context = await browser.new_context()
         # 关键：将录制脚本设为“新文档自动注入”，否则用户点击跳转到新页面后
         # 原页面注入的监听全部丢失，导致只录到跳转前的少量操作
         await context.add_init_script(_INJECT_RECORDER_JS)

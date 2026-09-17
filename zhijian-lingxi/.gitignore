@@ -15,9 +15,22 @@ dist/
 
 # Tauri / Rust
 src-tauri/target/
+src-tauri/gen/
+
+# 打包产物
+publish/
 
 # IDE
 .idea/
 .vscode/
+.trae/
 *.log
 .DS_Store
+
+# 临时调试脚本
+backend/_run*.py
+backend/_check_bili_*.py
+backend/_debug_parse.py
+backend/_doc.html
+backend/_iflist.html
+backend/_list.html

@@ -67,6 +67,12 @@ const actionLabels: Record<string, string> = {
   ocr: "OCR 读图",
   llm_extract: "AI 抽取",
   export: "导出报表",
+  read_excel: "读取 Excel",
+  read_csv: "读取 CSV",
+  read_pdf: "读取 PDF",
+  ocr_to_json: "OCR 识别成表格",
+  data_clean: "数据清洗",
+  llm_summarize: "AI 总结预警",
 };
 
 function actionLabel(type: string) {

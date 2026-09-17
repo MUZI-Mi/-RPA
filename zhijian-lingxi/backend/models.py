@@ -29,7 +29,7 @@ class Action(BaseModel):
         "reload", "back", "forward", "close_tab", "set_var",
         "goto", "if_text", "if_element", "if_var", "foreach", "foreach_if",
         "ocr", "llm_extract", "export",
-        "read_excel", "read_csv", "ocr_to_json", "data_clean", "llm_summarize",
+        "read_excel", "read_csv", "read_pdf", "ocr_to_json", "data_clean", "llm_summarize",
     ]
     url: Optional[str] = None
     selector: Optional[str] = None
@@ -53,8 +53,10 @@ class Action(BaseModel):
     export_format: Optional[Literal["csv", "json", "xlsx", "docx", "pdf"]] = "csv"  # export 导出格式
     export_filename: Optional[str] = None  # export 导出文件名（不含扩展名）
     template_file: Optional[str] = None    # export 引用的模板名（模板中心）
-    file_path: Optional[str] = None        # read_excel/read_csv 本地文件路径
+    file_path: Optional[str] = None        # read_excel/read_csv/read_pdf 本地文件路径
     sheet_name: Optional[str] = None       # read_excel 工作表名
+    pdf_extract: Optional[Literal["auto", "text", "table", "ocr"]] = "auto"  # read_pdf 解析方式（auto=扫描件自动OCR）
+    pdf_page: Optional[int] = None         # read_pdf 只解析第 N 页（1 起，留空=全部页）
     has_header: bool = True                # read_excel/read_csv 是否有表头
     encoding: Optional[str] = None         # read_csv 编码
     delimiter: Optional[str] = None        # read_csv 分隔符

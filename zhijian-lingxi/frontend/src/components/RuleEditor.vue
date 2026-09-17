@@ -50,6 +50,7 @@
           <el-option label="导出报表（数据文件）" value="export" />
           <el-option label="读取本地 Excel" value="read_excel" />
           <el-option label="读取本地 CSV" value="read_csv" />
+          <el-option label="读取本地 PDF" value="read_pdf" />
           <el-option label="OCR 识别成表格" value="ocr_to_json" />
           <el-option label="数据清洗（去重/补空/统一格式）" value="data_clean" />
           <el-option label="AI 总结与异常预警" value="llm_summarize" />
@@ -236,6 +237,25 @@
         <el-switch v-model="form.action.has_header" />
       </el-form-item>
 
+      <!-- 读取本地 PDF -->
+      <el-form-item v-if="form.action.type === 'read_pdf'" label="文件路径">
+        <el-input v-model="form.action.file_path" placeholder="本机 PDF 文件路径，如：D:\\材料\\会议纪要.pdf" />
+      </el-form-item>
+      <el-form-item v-if="form.action.type === 'read_pdf'" label="解析方式">
+        <el-select v-model="form.action.pdf_extract" style="width: 100%">
+          <el-option label="自动判断（扫描件自动转OCR）" value="auto" />
+          <el-option label="只抽文字" value="text" />
+          <el-option label="只抽表格" value="table" />
+          <el-option label="扫描件强制OCR" value="ocr" />
+        </el-select>
+      </el-form-item>
+      <el-form-item v-if="form.action.type === 'read_pdf'" label="只解析第几页">
+        <el-input v-model.number="form.action.pdf_page" placeholder="留空=解析全部页，如：2" />
+      </el-form-item>
+      <el-form-item v-if="form.action.type === 'read_pdf'" label="有表头（抽表格时）">
+        <el-switch v-model="form.action.has_header" />
+      </el-form-item>
+
       <!-- OCR 识别成表格 -->
       <el-form-item v-if="form.action.type === 'ocr_to_json'" label="识别范围">
         <el-select v-model="form.action.ocr_source" style="width: 100%">
@@ -409,6 +429,10 @@ watch(
         if (a.has_header === undefined) a.has_header = true;
         if (!a.encoding) a.encoding = "utf-8";
         if (!a.delimiter) a.delimiter = ",";
+      }
+      if (a.type === "read_pdf") {
+        if (!a.pdf_extract) a.pdf_extract = "auto";
+        if (a.has_header === undefined) a.has_header = true;
       }
       if (a.type === "ocr_to_json" && !a.ocr_source) a.ocr_source = "page";
       if (a.type === "llm_summarize" && !a.batch_size) a.batch_size = 10;
